@@ -8,5 +8,6 @@ pydantic<2
 dill
 ipykernel
 setuptools==65.5.0
-protobuf==4.25.9
+apache-beam[gcp]==2.47.0
+packaging==20.9
 requests
