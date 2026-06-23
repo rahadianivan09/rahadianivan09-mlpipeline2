@@ -1,0 +1,11 @@
+tfx-env/
+
+# Artifact hasil run pipeline TFX (dibuat ulang otomatis tiap run)
+rahadianivan09-pipeline/
+
+# Cache python umum
+__pycache__/
+*.pyc
+
+# Jupyter checkpoint
+.ipynb_checkpoints/
