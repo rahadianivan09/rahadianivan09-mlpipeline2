@@ -1,6 +1,6 @@
-# Submission 1: Bank Marketing Deposit Prediction Pipeline
+# Submission 2: Bank Marketing Deposit Prediction — MLOps End-to-End
 
-**Nama:** Ivan Rahadian  
+**Nama:** Ivan Rahadian
 **Username Dicoding:** rahadianivan09
 
 ---
@@ -10,12 +10,12 @@
 | | |
 |---|---|
 | **Dataset** | [Bank Marketing Dataset](https://www.kaggle.com/datasets/janiobachmann/bank-marketing-dataset) — UCI Bank Marketing, 11.162 baris, 16 fitur |
-| **Masalah** | Bank ingin memprediksi apakah seorang nasabah akan berlangganan deposito berjangka (`deposit: yes/no`) berdasarkan data demografis dan riwayat kampanye marketing. Ketidakmampuan mengidentifikasi nasabah potensial menyebabkan biaya kampanye yang tidak efisien. |
-| **Solusi Machine Learning** | Membangun pipeline ML end-to-end menggunakan **TFX (TensorFlow Extended)** untuk klasifikasi biner — memprediksi probabilitas nasabah melakukan deposit. Pipeline mencakup validasi data, transformasi fitur, hyperparameter tuning, evaluasi otomatis, hingga deployment model. |
-| **Metode Pengolahan** | Fitur kategorik (job, marital, education, contact, month, poutcome, dll.) diproses menggunakan **one-hot encoding** dan vocabulary lookup. Fitur numerik (age, balance, duration, campaign, pdays, previous) dinormalisasi menggunakan **z-score normalization**. Seluruh preprocessing diimplementasikan via komponen **Transform** TFX agar konsisten antara training dan serving. |
-| **Arsitektur Model** | Deep Neural Network (DNN) klasifikasi biner dengan arsitektur yang ditentukan secara otomatis oleh **Keras Tuner** (hyperparameter tuning pada jumlah unit per layer, learning rate, dan dropout rate). Output layer menggunakan aktivasi **sigmoid** untuk menghasilkan skor probabilitas deposit. |
-| **Metrik Evaluasi** | **BinaryAccuracy** — proporsi prediksi yang benar dari total sampel. **AUC (Area Under Curve)** — kemampuan model membedakan kelas positif dan negatif. Selain itu dihitung juga **Precision**, **Recall**, dan **ExampleCount** via TFMA. |
-| **Performa Model** | Model berhasil melewati seluruh threshold evaluasi dan mendapat status **BLESSED ✅** |
+| **Masalah** | Bank ingin memprediksi apakah seorang nasabah akan berlangganan deposito berjangka (`deposit: yes/no`) berdasarkan data demografis dan riwayat kampanye marketing. |
+| **Solusi Machine Learning** | Membangun pipeline ML end-to-end menggunakan **TFX (TensorFlow Extended)** untuk klasifikasi biner. Target proyek: pipeline berjalan otomatis dari data mentah sampai model ter-deploy dan termonitor di **cloud environment**. |
+| **Metode Pengolahan** | Fitur kategorik diproses dengan **one-hot encoding** & vocabulary lookup. Fitur numerik dinormalisasi dengan **z-score normalization**, via komponen **Transform** TFX. |
+| **Arsitektur Model** | Deep Neural Network (DNN) klasifikasi biner, arsitektur ditentukan otomatis oleh **Keras Tuner**. Output layer pakai aktivasi **sigmoid**. |
+| **Metrik Evaluasi** | **BinaryAccuracy**, **AUC**, **Precision**, **Recall**, **ExampleCount** via TFMA. |
+| **Performa Model** | Model lolos seluruh threshold evaluasi, status **BLESSED ✅** |
 
 ---
 
@@ -28,35 +28,108 @@
 
 ---
 
-## Komponen Pipeline
+## Komponen Pipeline (TFX + Apache Beam)
 
 | Komponen | Deskripsi |
 |---|---|
-| ExampleGen | Membaca `bank.csv` dan membagi data menjadi train (80%) dan eval (20%) split |
-| StatisticsGen | Menghitung statistik deskriptif seluruh fitur untuk analisis distribusi data |
-| SchemaGen | Meng-infer schema dataset secara otomatis sebagai kontrak validasi data |
-| ExampleValidator | Mendeteksi anomali data (missing values, domain violation) terhadap schema |
-| Transform | Feature engineering: one-hot encoding fitur kategorik, normalisasi fitur numerik |
-| Tuner ✅ | Hyperparameter search otomatis menggunakan Keras Tuner |
-| Trainer | Melatih DNN klasifikasi biner menggunakan best hyperparameter dari Tuner |
-| Resolver | Mengambil model blessed terbaru sebagai baseline perbandingan evaluasi |
-| Evaluator | Evaluasi model dengan TFMA, model di-bless jika lolos threshold |
-| Pusher | Men-deploy model ke `serving_model/` dalam format SavedModel jika BLESSED |
+| ExampleGen | Membaca `bank.csv`, split train (80%) / eval (20%) |
+| StatisticsGen | Statistik deskriptif seluruh fitur |
+| SchemaGen | Infer schema otomatis sebagai kontrak validasi |
+| ExampleValidator | Deteksi anomali data terhadap schema |
+| Transform | One-hot encoding & normalisasi fitur |
+| Tuner ✅ | Hyperparameter search otomatis (Keras Tuner) |
+| Trainer | Training DNN dengan best hyperparameter |
+| Resolver | Ambil model blessed terbaru sebagai baseline |
+| Evaluator | Evaluasi TFMA, bless jika lolos threshold |
+| Pusher | Deploy model ke `serving_model/` jika BLESSED |
 
 ---
 
-## Bonus
+## Deployment — Cloud Computing
 
-- ✅ **Tuner** — Hyperparameter tuning otomatis dengan Keras Tuner
-- ✅ **Docker Serving** — Model di-serve menggunakan TensorFlow Serving via Docker
-- ✅ **testing.ipynb** — Pengujian endpoint prediksi via REST API (`localhost:8501`)
+Model di-deploy menggunakan **Docker container** yang menjalankan **TensorFlow Serving**, di-hosting di **Hugging Face Spaces** (alternatif dari Heroku, mendukung Docker native, gratis, stabil).
+
+**🔗 Web App / Model Serving URL:**
+```
+https://rahadianivan09-bank-deposit-prediction.hf.space
+```
+
+**Endpoint:**
+- Status: `GET /v1/models/bank-deposit-model`
+- Prediksi: `POST /v1/models/bank-deposit-model:predict`
+
+**Verifikasi:** Diuji lewat `rahadianivan09-testing.ipynb`, berhasil mengirim *prediction request* ke cloud dan menerima respons valid.
+
+---
+
+## Monitoring — Prometheus & Grafana
+
+Sistem dipantau menggunakan **Prometheus**, melakukan *scraping* metrics dari endpoint TF Serving di Hugging Face (`/monitoring/prometheus/metrics`), dikonfigurasi via `monitoring_config.txt`.
+
+**Hasil Monitoring:**
+- Target `tfserving-bank-deposit` terdeteksi **UP** secara konsisten.
+- Metrics yang dipantau: status ketersediaan model (`up`) serta metrics request/latency bawaan TF Serving.
+
+**Dashboard:** Prometheus disinkronkan dengan **Grafana** untuk dashboard visual, menampilkan status `UP/DOWN` kedua target (`prometheus` self-monitoring & `tfserving-bank-deposit`) dalam grafik time-series.
+
+Screenshot bukti:
+- `rahadianivan09-monitoring.png` — dashboard Prometheus, target UP
+- `rahadianivan09-grafanadashboard.png` — dashboard Grafana
+
+---
+
+## Testing — Prediction Request ke Cloud
+
+`rahadianivan09-testing.ipynb` memverifikasi model di Hugging Face dapat diakses dan menghasilkan prediksi valid.
+
+**Hasil pengujian (3 sampel nasabah):**
+
+| Nasabah | Age | Job | Balance | Duration | Score | Prediksi |
+|---|---|---|---|---|---|---|
+| 1 | 58 | management | 2143 | 261s | 0.3749 | Tidak Deposit ❌ |
+| 2 | 44 | technician | 29 | 151s | 0.2444 | Tidak Deposit ❌ |
+| 3 | 33 | entrepreneur | 2956 | 199s | 0.5087 | Akan Deposit ✅ |
+
+Model status saat pengujian:
+```json
+{
+  "model_version_status": [
+    {
+      "version": "1782280316",
+      "state": "AVAILABLE",
+      "status": { "error_code": "OK", "error_message": "" }
+    }
+  ]
+}
+```
+
+---
+
+## Clean Code — Pylint
+
+Modul pada `modules/` (`rahadianivan09_trainer.py`, `rahadianivan09_transform.py`) dievaluasi dengan **pylint**.
+
+**Hasil:** `Your code has been rated at 9.81/10`
+
+Screenshot bukti: `rahadianivan09-pylint.png`
+
+---
+
+## Penerapan Saran (Suggestions)
+
+| # | Saran | Status | Bukti |
+|---|---|---|---|
+| 1 | Hyperparameter tuning otomatis (Tuner) | ✅ | Komponen `Tuner` pada pipeline |
+| 2 | Clean code principle | ✅ | Pylint score 9.81/10 |
+| 3 | Notebook testing/prediction request ke cloud | ✅ | `rahadianivan09-testing.ipynb` |
+| 4 | Sinkronisasi Prometheus + Grafana | ✅ | `rahadianivan09-grafanadashboard.png` |
 
 ---
 
 ## Struktur Folder
 
 ```
-rahadianivan09-mlpipeline/
+rahadianivan09-mlpipeline2/
 ├── data/
 │   └── bank.csv
 ├── modules/
@@ -66,6 +139,19 @@ rahadianivan09-mlpipeline/
 │   ├── metadata/
 │   │   └── metadata.db
 │   └── serving_model/
+│       └── 1782280316/
+├── monitoring/
+│   ├── Dockerfile
+│   ├── prometheus.yml
+│   └── prometheus.config
 ├── rahadianivan09-pipeline.ipynb
-└── rahadianivan09-testing.ipynb
+├── rahadianivan09-testing.ipynb
+├── Dockerfile
+├── monitoring_config.txt
+├── requirements.txt
+├── rahadianivan09-deployment.png
+├── rahadianivan09-monitoring.png
+├── rahadianivan09-pylint.png
+├── rahadianivan09-grafanadashboard.png
+└── README.md
 ```
