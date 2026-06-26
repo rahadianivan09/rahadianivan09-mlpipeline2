@@ -1,7 +1,9 @@
 tfx-env/
 
 # Artifact hasil run pipeline TFX (dibuat ulang otomatis tiap run)
-rahadianivan09-pipeline/
+rahadianivan09-pipeline/*
+!rahadianivan09-pipeline/serving_model/
+!rahadianivan09-pipeline/serving_model/**
 
 # Cache python umum
 __pycache__/
